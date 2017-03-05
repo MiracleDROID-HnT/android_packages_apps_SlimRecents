@@ -151,6 +151,7 @@ public class RecentController implements RecentPanelView.OnExitListener,
     boolean enableMemDisplay;
     private int mMembarcolor;
     private int mMemtextcolor;
+    private boolean mMemBarLongClickToClear;
 
     private float mScaleFactor;
 
@@ -229,6 +230,8 @@ public class RecentController implements RecentPanelView.OnExitListener,
 
         mMemText = (TextView) mRecentContainer.findViewById(R.id.recents_memory_text);
         mMemBar = (ProgressBar) mRecentContainer.findViewById(R.id.recents_memory_bar);
+        mRecentContainer.findViewById(R.id.recents_membar)
+                .setOnLongClickListener(mMemBarLongClickListener);
 
         mEmptyRecentView =
                 (ImageView) mRecentContainer.findViewById(R.id.empty_recent);
@@ -722,6 +725,9 @@ public class RecentController implements RecentPanelView.OnExitListener,
             resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.SLIM_MEM_TEXT_COLOR),
                     false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.SLIM_RECENTS_MEM_DISPLAY_LONG_CLICK_CLEAR),
+                    false, this, UserHandle.USER_ALL);
             update();
         }
 
@@ -816,14 +822,17 @@ public class RecentController implements RecentPanelView.OnExitListener,
                     && Settings.Secure.getInt(resolver,
                     Settings.Secure.USER_SETUP_COMPLETE, 0) != 0;
 
-            enableMemDisplay = Settings.System.getInt(mContext.getContentResolver(),
-                Settings.System.SLIM_RECENTS_MEM_DISPLAY, 0) == 1;
+            enableMemDisplay = Settings.System.getInt(resolver,
+                    Settings.System.SLIM_RECENTS_MEM_DISPLAY, 0) == 1;
             showMemDisplay();
 
-            mMembarcolor = Settings.System.getInt(mContext.getContentResolver(),
-                Settings.System.SLIM_MEM_BAR_COLOR, 0x00ffffff);
-            mMemtextcolor = Settings.System.getInt(mContext.getContentResolver(),
-                Settings.System.SLIM_MEM_TEXT_COLOR, 0x00ffffff);
+            mMemBarLongClickToClear = Settings.System.getInt(resolver,
+                    Settings.System.SLIM_RECENTS_MEM_DISPLAY_LONG_CLICK_CLEAR, 0) == 1;
+
+            mMembarcolor = Settings.System.getInt(resolver,
+                    Settings.System.SLIM_MEM_BAR_COLOR, 0x00ffffff);
+            mMemtextcolor = Settings.System.getInt(resolver,
+                    Settings.System.SLIM_MEM_TEXT_COLOR, 0x00ffffff);
 
             // force a new preloading on next Recents call after boot or a settings change
             // to refresh the panel before the user shows it again.
@@ -1334,4 +1343,20 @@ public class RecentController implements RecentPanelView.OnExitListener,
         long totalMem = memInfo.totalMem;
         return totalMem;
     }
+
+    private View.OnLongClickListener mMemBarLongClickListener = new View.OnLongClickListener() {
+        @Override
+        public boolean onLongClick(View v) {
+            if (!mMemBarLongClickToClear) {
+                return false;
+            }
+            if (mRecentPanelView.hasClearableTasks()) {
+                if (mRecentPanelView.removeAllApplications()) {
+                    hideRecents(false);
+                }
+                return true;
+            }
+            return false;
+        }
+    };
 }
