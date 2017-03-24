@@ -42,6 +42,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
 //import android.database.ContentObserver;
+import android.graphics.PorterDuff.Mode;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.VectorDrawable;
@@ -148,6 +149,8 @@ public class RecentController implements RecentPanelView.OnExitListener,
     TextView mMemText;
     ProgressBar mMemBar;
     boolean enableMemDisplay;
+    private int mMembarcolor;
+    private int mMemtextcolor;
 
     private float mScaleFactor;
 
@@ -713,6 +716,12 @@ public class RecentController implements RecentPanelView.OnExitListener,
             resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.SLIM_RECENTS_MEM_DISPLAY),
                     false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.SLIM_MEM_BAR_COLOR),
+                    false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.SLIM_MEM_TEXT_COLOR),
+                    false, this, UserHandle.USER_ALL);
             update();
         }
 
@@ -810,6 +819,11 @@ public class RecentController implements RecentPanelView.OnExitListener,
             enableMemDisplay = Settings.System.getInt(mContext.getContentResolver(),
                 Settings.System.SLIM_RECENTS_MEM_DISPLAY, 0) == 1;
             showMemDisplay();
+
+            mMembarcolor = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.SLIM_MEM_BAR_COLOR, 0x00ffffff);
+            mMemtextcolor = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.SLIM_MEM_TEXT_COLOR, 0x00ffffff);
 
             // force a new preloading on next Recents call after boot or a settings change
             // to refresh the panel before the user shows it again.
@@ -1306,6 +1320,12 @@ public class RecentController implements RecentPanelView.OnExitListener,
             mMemText.setText(String.format(mContext.getResources().getString(R.string.recents_free_ram),available));
             mMemBar.setMax(max);
             mMemBar.setProgress(available);
+            mMemBar.getProgressDrawable().setColorFilter(mMembarcolor == 0x00ffffff
+                    ? mContext.getResources().getColor(R.color.recents_membar_color)
+                    : mMembarcolor, Mode.MULTIPLY);
+            mMemText.setTextColor(mMemtextcolor == 0x00ffffff
+                    ? mContext.getResources().getColor(R.color.recents_membar_text_color)
+                    : mMemtextcolor);
     }
 
     public long getTotalMemory() {
