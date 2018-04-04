@@ -38,6 +38,7 @@ import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.Paint;
 import android.graphics.PaintFlagsDrawFilter;
@@ -158,6 +159,7 @@ public class RecentPanelView {
     private boolean mMediaPlaying;
     private String mMediaPackageName = "";
     private MediaMetadata mMediaMetaData;
+    private Drawable mArtWork;
 
     final static BitmapFactory.Options sBitmapOptions;
 
@@ -1165,18 +1167,21 @@ public class RecentPanelView {
         private void addCard(final TaskDescription task, boolean topTask, boolean loadBitmap) {
             final RecentCard card = new RecentCard(task);
 
+            //Set card title
+            card.appName = getCardTitle(task, card);
+
             final Drawable appIcon =
                     CacheController.getInstance(mContext, mClearThumbOnEviction)
                     .getBitmapFromMemCache(task.identifier);
             if (appIcon != null) {
-                card.appIcon = appIcon;
+                card.appIcon = getCardIcon(task, appIcon, card);
                 postnotifyItemChanged(mCardRecyclerView, card);
             } else {
                 AppIconLoader.getInstance(mContext).loadAppIcon(task.info,
                         task.identifier, new AppIconLoader.IconCallback() {
                             @Override
                             public void onDrawableLoaded(Drawable drawable) {
-                                card.appIcon = drawable;
+                                card.appIcon = getCardIcon(task, drawable, card);
                                 postnotifyItemChanged(mCardRecyclerView, card);
                             }
                 }, mIconsHandler);
@@ -1205,9 +1210,6 @@ public class RecentPanelView {
 
             //Set corner radius
             card.cornerRadius = mCornerRadius;
-
-            //Set card title
-            card.appName = getCardTitle(task, card);
 
             mCounter++;
             publishProgress(card);
@@ -1289,6 +1291,27 @@ public class RecentPanelView {
         }
     }
 
+    private Drawable getCardIcon(TaskDescription task, Drawable icon, RecentCard card) {
+        // if the app is the current media player and a song is playing
+        // we set track infos as title
+        if (task != null && mMediaPlaying
+                && task.packageName.toLowerCase().equals(mMediaPackageName)) {
+            final Drawable albumart = getAlbumArt();
+            if (albumart != null) {
+                return albumart;
+            }
+        }
+        // no albumart, return original app icon
+        return icon;
+    }
+
+    private Drawable getAlbumArt() {
+        if (mArtWork != null) {
+            return mArtWork;
+        }
+        return null;
+    }
+
     private String getCardTitle(TaskDescription task, RecentCard card) {
         // if the app is the current media player and a song is playing
         // we set track infos as title
@@ -1356,8 +1379,9 @@ public class RecentPanelView {
         }
     }
 
-    public void setMediaColors(int color) {
+    public void setMediaColors(int color, Drawable artwork) {
         mMediaColor = color;
+        mArtWork = artwork;
         // if we have already set albumart color for a card and the panel is showing,
         // update card color now
         if (mController.isShowing()) {
@@ -1367,6 +1391,10 @@ public class RecentPanelView {
                 if (card.packageName.equals(mMediaPackageName)) {
                     if (mCardColor == 0x0ffffff && color != -1) {
                         card.cardBackgroundColor  = color;
+                    }
+                    final Drawable albumart = getAlbumArt();
+                    if (albumart != null) {
+                        card.appIcon = albumart;
                     }
                     postnotifyItemChanged(mCardRecyclerView, card);
                 }
