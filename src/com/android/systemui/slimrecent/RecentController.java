@@ -279,6 +279,11 @@ public class RecentController implements RecentPanelView.OnExitListener,
                 .removeCallbacks(this);
     }
 
+    public void refreshCachedPackage(String packageName, boolean removedPackage) {
+        CacheController.getInstance(mContext, null).refreshPackage(packageName, removedPackage);
+        InfosCacheController.getInstance(mContext).refreshPackage(packageName);
+    }
+
     public void addSbCallbacks() {
         SysUiServiceProvider.getComponent(mContext, CommandQueue.class)
                 .addCallbacks(this);
@@ -419,7 +424,7 @@ public class RecentController implements RecentPanelView.OnExitListener,
         if (mAnimationState == ANIMATION_STATE_NONE) {
             if (!isShowing()) {
                 mIsToggled = true;
-                if (mRecentPanelView.isTasksLoaded()) {
+                if (mRecentPanelView.atLeastOneTaskAvailable()) {
                     showRecents();
                 } else if (!mIsPreloaded) {
                     // This should never happen due that preload should
