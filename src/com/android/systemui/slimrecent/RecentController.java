@@ -80,7 +80,7 @@ import com.android.systemui.statusbar.CommandQueue;
 import com.android.systemui.SysUiServiceProvider;
 import com.android.systemui.statusbar.phone.StatusBar;
 
-import com.android.internal.utils.du.UserContentObserver;
+import com.android.internal.util.mdroid.UserContentObserver;
 
 import static com.android.systemui.statusbar.phone.StatusBar.SYSTEM_DIALOG_REASON_RECENT_APPS;
 
