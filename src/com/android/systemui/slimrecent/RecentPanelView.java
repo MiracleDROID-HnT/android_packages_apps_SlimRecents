@@ -682,6 +682,7 @@ public class RecentPanelView implements NextAlarmChangeCallback {
             setVisibility();
             exit();
         }
+        mController.updateMemoryStatus();
     }
 
     /**
@@ -724,6 +725,7 @@ public class RecentPanelView implements NextAlarmChangeCallback {
 
     private void removeRecentCard(RecentCard card) {
         mCardAdapter.removeCard(card);
+        mController.updateMemoryStatus();
     }
 
     /**
@@ -825,6 +827,7 @@ public class RecentPanelView implements NextAlarmChangeCallback {
         // Let us load the cards for it in background.
         final CardLoader cardLoader = new CardLoader();
         cardLoader.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
+        mController.updateMemoryStatus();
     }
 
     /**
@@ -835,6 +838,7 @@ public class RecentPanelView implements NextAlarmChangeCallback {
                 mCardAdapter.getItemCount() == 0) ? View.VISIBLE : View.GONE);
         mCardRecyclerView.setVisibility((
                 mCardAdapter.getItemCount() == 0) ? View.GONE : View.VISIBLE);
+        mController.updateMemoryStatus();
     }
 
     /**
@@ -858,6 +862,7 @@ public class RecentPanelView implements NextAlarmChangeCallback {
                                 card.task.identifier, card.task.getExpandedState()));
             }
         }
+        mController.updateMemoryStatus();
     }
 
     /**

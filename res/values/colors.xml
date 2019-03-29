@@ -34,4 +34,8 @@
     <color name="recents_empty_light_color">#ffb3b3b3</color>
 
     <color name="legacy_icon_background">#FFFFFF</color>
+
+    <!-- Recents membar text color -->
+    <color name="recents_membar_text_color">@android:color/white</color>
+
 </resources>
