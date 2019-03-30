@@ -35,7 +35,6 @@ public final class TaskDescription {
     private String mLabel; // application package label
     private int mExpandedState;
     private boolean mIsFavorite;
-    private boolean mPlaying;
 
     public TaskDescription(int _taskId, int _persistentTaskId,
             ActivityInfo _info, Intent _intent,
@@ -93,11 +92,4 @@ public final class TaskDescription {
         mIsFavorite = isFavorite;
     }
 
-    public void setisMediaPlayingTask(boolean playing) {
-        mPlaying = playing;
-    }
-
-    public boolean isMediaPlayingTask() {
-        return mPlaying;
-    }
 }

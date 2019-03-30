@@ -40,12 +40,10 @@ import android.graphics.Bitmap;
 //import android.graphics.Bitmap.Config;
 import android.graphics.BitmapFactory;
 //import android.graphics.Canvas;
-//import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 //import android.graphics.Paint;
 //import android.graphics.PaintFlagsDrawFilter;
 //import android.graphics.RectF;
-import android.media.MediaMetadata;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Handler;
@@ -88,7 +86,6 @@ import android.util.ArraySet;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import static android.app.ActivityManager.StackId.PINNED_STACK_ID;
 import static android.app.ActivityManager.StackId.RECENTS_STACK_ID;
@@ -166,13 +163,6 @@ public class RecentPanelView implements NextAlarmChangeCallback {
     private IActivityManager mIam;
 
     private IconsHandler mIconsHandler;
-
-    private int mMediaColor = -1;
-    private boolean mMediaPlaying;
-    private String mMediaPackageName = "";
-    private MediaMetadata mMediaMetaData;
-    private String mMediaText = null;
-    private Drawable mArtWork;
 
     final static BitmapFactory.Options sBitmapOptions;
 
@@ -1015,17 +1005,9 @@ public class RecentPanelView implements NextAlarmChangeCallback {
     }
 
     protected void scrollToFirst() {
-        mController.getLayoutManager().scrollToPositionWithOffset(0, 0);
-    }
-
-    protected void scrollPanel(boolean down) {
-        final int N = mCardAdapter.getItemCount();
-        if (N > 1) {
-            mCardRecyclerView.smoothScrollToPosition(down ? (mCardAdapter.getItemCount() - 1) : 0);
-            // the following is just for reference, different api that does the same thing
-            /*mController.getLayoutManager().smoothScrollToPosition(mCardRecyclerView, null,
-                    down ? (mCardAdapter.getItemCount() - 1) : 0);*/
-        }
+        LinearLayoutManager lm =
+                (LinearLayoutManager) mCardRecyclerView.getLayoutManager();
+        lm.scrollToPositionWithOffset(0, 0);
     }
 
     /**
@@ -1069,7 +1051,6 @@ public class RecentPanelView implements NextAlarmChangeCallback {
 
             mCounter = 0;
             int firstItems = 0;
-            final ArrayList<TaskDescription> mediaPlayingTasks = new ArrayList<>();
             final ArrayList<TaskDescription> nonFavoriteTasks = new ArrayList<>();
 
             final List<ActivityManager.RecentTaskInfo> recentTasks = getAllRecentTasks();
@@ -1130,10 +1111,6 @@ public class RecentPanelView implements NextAlarmChangeCallback {
                     item.setIsFavorite(true);
                 }
 
-                if (mMediaPlaying && item.packageName.toLowerCase().equals(mMediaPackageName)) {
-                    item.setisMediaPlayingTask(true);
-                }
-
                 if (topTask) {
                     // User want to see actual running task. Set it here
                     int oldState = getExpandedState(item);
@@ -1169,13 +1146,10 @@ public class RecentPanelView implements NextAlarmChangeCallback {
                             oldState |= EXPANDED_STATE_BY_SYSTEM;
                         }*/
                         item.setExpandedState(oldState);
-                        // Favorite tasks are added next. Media playing and non favorite
+                        // Favorite tasks are added next. Non favorite
                         // we hold for a short time in an extra list.
                         if (item.getIsFavorite()) {
                             addCard(item, false, false);
-                        } else if (item.isMediaPlayingTask()) {
-                            item.setisMediaPlayingTask(true);
-                            mediaPlayingTasks.add(item);
                         } else {
                             nonFavoriteTasks.add(item);
                         }
@@ -1184,17 +1158,6 @@ public class RecentPanelView implements NextAlarmChangeCallback {
                 }
             }
 
-            // Add now the media playing tasks to the final task list.
-            for (TaskDescription item : mediaPlayingTasks) {
-                if (mCounter >= mMaxAppsToLoad) {
-                    break;
-                }
-                if (isCancelled() || isCancelledByUser()) {
-                    mIsLoading = false;
-                    return false;
-                }
-                addCard(item, false, false);
-            }
             // Add now the non favorite tasks to the final task list.
             for (TaskDescription item : nonFavoriteTasks) {
                 if (mCounter >= mMaxAppsToLoad) {
@@ -1213,21 +1176,18 @@ public class RecentPanelView implements NextAlarmChangeCallback {
         private void addCard(final TaskDescription task, boolean topTask, boolean loadBitmap) {
             final RecentCard card = new RecentCard(task);
 
-            //Set card title
-            card.appName = getCardTitle(task, card);
-
             final Drawable appIcon =
                     CacheController.getInstance(mContext, /*mClearThumbOnEviction*/null)
                     .getBitmapFromMemCache(task.identifier);
             if (appIcon != null) {
-                card.appIcon = getCardIcon(task, appIcon, card);
+                card.appIcon = appIcon;
                 postnotifyItemChanged(mCardRecyclerView, card);
             } else {
                 AppIconLoader.getInstance(mContext).loadAppIcon(task.info,
                         task.identifier, new AppIconLoader.IconCallback() {
                             @Override
                             public void onDrawableLoaded(Drawable drawable) {
-                                card.appIcon = getCardIcon(task, drawable, card);
+                                card.appIcon = drawable;
                                 postnotifyItemChanged(mCardRecyclerView, card);
                             }
                 }, mIconsHandler);
@@ -1256,6 +1216,9 @@ public class RecentPanelView implements NextAlarmChangeCallback {
 
             //Set corner radius
             card.cornerRadius = mCornerRadius;
+
+            //Set card title
+            card.appName = getCardTitle(task, card);
 
             mCounter++;
             publishProgress(card);
@@ -1343,13 +1306,8 @@ public class RecentPanelView implements NextAlarmChangeCallback {
     }
 
     private int getCardBackgroundColor(TaskDescription task) {
-        if (mCardColor != 0x0ffffff/* &&
-                !(task != null && task.isMediaPlayingTask() && mMediaColor != -1)*/) {
-            // uncomment above lines in the "if" and in the setMediaColors method to get the albumart color
-            // also if the user sets a custom cards color
+        if (mCardColor != 0x0ffffff) {
             return mCardColor;
-        } else if (task != null && task.isMediaPlayingTask() && mMediaColor != -1) {
-            return mMediaColor;
         } else if (task != null && task.cardColor != 0) {
             return task.cardColor;
         } else {
@@ -1357,37 +1315,7 @@ public class RecentPanelView implements NextAlarmChangeCallback {
         }
     }
 
-    private Drawable getCardIcon(TaskDescription task, Drawable icon, RecentCard card) {
-        // if the app is the current media player and a song is playing
-        // we set track infos as title
-        if (task != null && task.isMediaPlayingTask()) {
-            final Drawable albumart = getAlbumArt();
-            if (albumart != null) {
-                return albumart;
-            }
-        }
-        // no albumart, return original app icon
-        return icon;
-    }
-
-    private Drawable getAlbumArt() {
-        if (mArtWork != null) {
-            return mArtWork;
-        }
-        return null;
-    }
-
     private String getCardTitle(TaskDescription task, RecentCard card) {
-        // if the app is the current media player and a song is playing
-        // we set track infos as title
-        if (task != null && task.isMediaPlayingTask()) {
-            card.packageName = mMediaPackageName;
-            final String info = getTrackInfo();
-            if (info != null) {
-                return info;
-            }
-        }
-
         if (card.packageName.toLowerCase().contains("deskclock")
                 && !mAlarm.isEmpty()) {
             return getClockWithAlarmTitle(card.appName);
@@ -1419,74 +1347,6 @@ public class RecentPanelView implements NextAlarmChangeCallback {
     private String getClockWithAlarmTitle(String appName) {
         final String icon = "\u23F2\uFE0E";
         return appName + " " + "(" + icon + " " + mAlarm + ")";
-    }
-
-    private String getTrackInfo() {
-        CharSequence charSequence = null;
-        CharSequence lenghtInfo = null;
-        if (mMediaMetaData != null) {
-            CharSequence artist = mMediaMetaData.getText(MediaMetadata.METADATA_KEY_ARTIST);
-            CharSequence album = mMediaMetaData.getText(MediaMetadata.METADATA_KEY_ALBUM);
-            CharSequence title = mMediaMetaData.getText(MediaMetadata.METADATA_KEY_TITLE);
-            long duration = mMediaMetaData.getLong(MediaMetadata.METADATA_KEY_DURATION);
-            if (artist != null && album != null && title != null) {
-                charSequence = artist.toString() /*+ " - " + album.toString()*/ + " - " + title.toString();
-                if (duration != 0) {
-                    lenghtInfo = String.format("%02d:%02d",
-                            TimeUnit.MILLISECONDS.toMinutes(duration),
-                            TimeUnit.MILLISECONDS.toSeconds(duration) -
-                            TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(duration))
-                    );
-                }
-            }
-        }
-        if (charSequence != null && lenghtInfo != null) {
-            return (lenghtInfo + " | " + charSequence).toString();
-        } else if (charSequence != null) {
-            return charSequence.toString();
-        }
-        return mMediaText;
-    }
-
-    public void setMediaPlaying(boolean playing, String packageName) {
-        mMediaPlaying = playing;
-        mMediaPackageName = packageName;
-    }
-
-    public void setMedia(int color, Drawable artwork, MediaMetadata mediaMetaData, String title, String text) {
-        mMediaMetaData = mediaMetaData;
-        String notificationText = null;
-        if (title != null && text != null) {
-            notificationText = title + " - " + text;
-        }
-        mMediaText = notificationText;
-        mMediaColor = color;
-        mArtWork = artwork;
-        // if we have already set colors or info for a card and the panel is showing,
-        // update card color now
-        if (mController.isShowing()) {
-            int count = mCardAdapter.getItemCount();
-            for (int i = 0; i < count; i++) {
-                RecentCard card = (RecentCard) mCardAdapter.getCard(i);
-                if (card.packageName.equals(mMediaPackageName)) {
-                    String info = getTrackInfo();
-                    if (info != null) {
-                        card.appName  = info;
-                    }
-
-                    if (mCardColor == 0x0ffffff && color != -1) {
-                        card.cardBackgroundColor  = color;
-                    }
-
-                    final Drawable albumart = getAlbumArt();
-                    if (albumart != null) {
-                        card.appIcon = albumart;
-                    }
-
-                    postnotifyItemChanged(mCardRecyclerView, card);
-                }
-            }
-        }
     }
 
     private static ActivityManager.RunningTaskInfo

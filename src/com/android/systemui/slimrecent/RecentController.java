@@ -26,8 +26,6 @@ import android.app.IActivityManager;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
-import android.animation.ObjectAnimator;
-import android.animation.PropertyValuesHolder;
 import android.animation.ValueAnimator;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
@@ -46,7 +44,6 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.VectorDrawable;
 import android.graphics.PixelFormat;
 //import android.graphics.Point;
-import android.media.MediaMetadata;
 //import android.net.Uri;
 //import android.os.Bundle;
 import android.os.Handler;
@@ -121,14 +118,12 @@ public class RecentController implements RecentPanelView.OnExitListener,
     private WindowManager mWindowManager;
     private IWindowManager mWindowManagerService;
 
-    private CacheMoreCardsLayoutManager mLayoutManager;
-
     private boolean mIsShowing;
     private boolean mIsToggled;
     private boolean mIsPreloaded;
     private boolean mIsUserSetup;
 
-    private boolean mExpandAnimation;
+    private boolean mExpandAnimation = false;
 
     // The different views we need.
     private ViewGroup mParentView;
@@ -154,9 +149,6 @@ public class RecentController implements RecentPanelView.OnExitListener,
     private Handler mHandler;
 
     private IconsHandler mIconsHandler;
-
-    private boolean mWaitingClearAllConfirmation;
-    private ObjectAnimator mClearAllAnimation;
 
     private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
@@ -224,14 +216,6 @@ public class RecentController implements RecentPanelView.OnExitListener,
         mEmptyRecentView =
                 (ImageView) mRecentContainer.findViewById(R.id.empty_recent);
 
-        mClearAllAnimation = ObjectAnimator.ofPropertyValuesHolder(
-                mCardRecyclerView,
-                PropertyValuesHolder.ofFloat("alpha", 0.3f)/*,
-                maybe add more anim props here like scaleX and Y*/);
-        mClearAllAnimation.setDuration(850);
-        mClearAllAnimation.setRepeatCount(ObjectAnimator.INFINITE);
-        mClearAllAnimation.setRepeatMode(ObjectAnimator.REVERSE);
-
         // Prepare gesture detector.
         final ScaleGestureDetector recentListGestureDetector =
                 new ScaleGestureDetector(mContext,
@@ -242,9 +226,6 @@ public class RecentController implements RecentPanelView.OnExitListener,
         mCardRecyclerView.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                if (mWaitingClearAllConfirmation) {
-                    cancelClearAllWaiting();
-                }
                 recentListGestureDetector.onTouchEvent(event);
                 return false;
             }
@@ -581,34 +562,6 @@ public class RecentController implements RecentPanelView.OnExitListener,
         return mIsShowing;
     }
 
-    public void scrollPanel(boolean down) {
-        if (mWaitingClearAllConfirmation) {
-            cancelClearAllWaiting();
-        }
-        mRecentPanelView.scrollPanel(down);
-    }
-
-    public void clearAllAppsFromSwipe() {
-        if (mTasks == null || mTasks.isEmpty()) {
-            return;
-        }
-        if (!mWaitingClearAllConfirmation) {
-            mClearAllAnimation.start();
-            mWaitingClearAllConfirmation = true;
-        } else {
-            cancelClearAllWaiting();
-            if (mRecentPanelView.removeAllApplications()) {
-                hideRecents(false);
-            }
-        }
-    }
-
-    protected void cancelClearAllWaiting() {
-        mClearAllAnimation.cancel();
-        mCardRecyclerView.setAlpha(1.0f);
-        mWaitingClearAllConfirmation = false;
-    }
-
     @Override
     public void hideRecentApps(boolean triggeredFromAltTab,
             boolean triggeredFromHomeKey) {
@@ -653,7 +606,6 @@ public class RecentController implements RecentPanelView.OnExitListener,
         } catch (RemoteException e) {}
 
         mIsShowing = true;
-        cancelClearAllWaiting();
         sendCloseSystemWindows(SYSTEM_DIALOG_REASON_RECENT_APPS);
         mAnimationState = ANIMATION_STATE_NONE;
         mHandler.removeCallbacks(mRecentRunnable);
@@ -757,10 +709,10 @@ public class RecentController implements RecentPanelView.OnExitListener,
                         resolver, Settings.System.RECENT_PANEL_EXPANDED_MODE,
                         RecentPanelView.EXPANDED_MODE_NEVER,
                         UserHandle.USER_CURRENT);
-            mLayoutManager =
+            CacheMoreCardsLayoutManager llm =
                     new CacheMoreCardsLayoutManager(mContext, mWindowManager, expandMode);
-            mLayoutManager.setReverseLayout(true);
-            mCardRecyclerView.setLayoutManager(mLayoutManager);
+            llm.setReverseLayout(true);
+            mCardRecyclerView.setLayoutManager(llm);
 
             // Get user gravity.
             mUserGravity = Settings.System.getIntForUser(
@@ -842,10 +794,6 @@ public class RecentController implements RecentPanelView.OnExitListener,
             // to refresh the panel before the user shows it again.
             mIsPreloaded = false;
         }
-    }
-
-    public LinearLayoutManager getLayoutManager() {
-        return (LinearLayoutManager) mLayoutManager;
     }
 
     public boolean onConfigurationChanged(Configuration newConfig) {
@@ -1312,15 +1260,4 @@ public class RecentController implements RecentPanelView.OnExitListener,
             return true;
         }
     };
-
-    public void setMediaPlaying(boolean playing, String packageName) {
-        mRecentPanelView.setMediaPlaying(playing, packageName);
-    }
-
-    public void setMedia(boolean colorizedMedia, int[] colors, Drawable artwork, MediaMetadata mediaMetaData, String title, String text) {
-        mRecentPanelView.setMedia(colorizedMedia ? colors[0] : -1,
-                colorizedMedia ? ImageHelper.getResizedIconDrawable(
-                artwork, mContext, R.dimen.recent_app_icon_size, mScaleFactor) : null,
-                mediaMetaData, title, text);
-    }
 }
