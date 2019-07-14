@@ -79,11 +79,11 @@ public class ExpandableCardAdapter
 
         if (card.pinAppIcon) {
             holder.expandButton.setImageDrawable(card.custom);
-        } else /*if (mFastMode)*/ {
+        } else if (mFastMode) {
             holder.expandButton.setImageResource(R.drawable.ic_options);
-        }/* else if (card.expandVisible) {
+        } else if (card.expandVisible) {
             holder.expandButton.setImageResource(R.drawable.ic_expand);
-        }*/
+        }
         holder.expandButton.setVisibility(card.noIcon ? View.INVISIBLE : View.VISIBLE);
 
         if (card.cardBackgroundColor != 0) {
@@ -204,9 +204,9 @@ public class ExpandableCardAdapter
                         if (expCard.pinAppListener != null) {
                             expCard.pinAppListener.onClick(v);
                         }
-                    } else /*if (mFastMode)*/ {
+                    } else if (mFastMode) {
                         showOptions();
-                    }/* else if (expCard.expandVisible) {
+                    } else if (expCard.expandVisible) {
                         expCard.expanded = !expCard.expanded;
                         if (expCard.expandListener != null) {
                             expCard.expandListener.onExpanded(expCard.expanded);
@@ -217,7 +217,7 @@ public class ExpandableCardAdapter
                                 (ViewGroup) itemView.getParent(), trans);
                         expandButton.animate().rotation(expCard.expanded ? -180 : 0);
                         notifyItemChanged(getAdapterPosition());
-                    }*/
+                    }
                 }
             });
 
@@ -311,7 +311,7 @@ public class ExpandableCardAdapter
             appIcon.setVisibility(show ? View.VISIBLE : View.GONE);
             appName.setVisibility(show ? View.VISIBLE : View.GONE);
             favorite.setVisibility(show && expCard.favorite ? View.VISIBLE : View.GONE);
-            expandButton.setVisibility(show /*&& !expCard.noIcon */? View.VISIBLE : View.GONE);
+            expandButton.setVisibility(show && !expCard.noIcon ? View.VISIBLE : View.GONE);
         }
 
         Animation.AnimationListener animListener =
